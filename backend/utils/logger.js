@@ -1,19 +1,26 @@
-// utils/logger.js
+// backend/utils/logger.js
 
-// Function to log success messages
-export const logSuccess = (message, data = {}) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[SUCCESS] ${timestamp}: ${message}`, data);
+import moment from 'moment-timezone';
+
+const getTimestamp = () => {
+    return moment().tz('Asia/Kolkata').format('YYYY-MM-DDTHH:mm:ss.SSSZ');
 };
 
-// Function to log error messages
-export const logError = (message, error = {}, data = {}) => {
-    const timestamp = new Date().toISOString();
-    console.error(`[ERROR] ${timestamp}: ${message}`, error, data);
+export const logInfo = (message, context = {}) => {
+    console.log(`[INFO] ${getTimestamp()}: ${message}`, context);
 };
 
-// Function to log informational messages (e.g., for general flow)
-export const logInfo = (message, data = {}) => {
-    const timestamp = new Date().toISOString();
-    console.log(`[INFO] ${timestamp}: ${message}`, data);
+export const logSuccess = (message, context = {}) => {
+    console.log(`[SUCCESS] ${getTimestamp()}: ${message}`, context);
+};
+
+export const logError = (message, error = null, context = {}) => {
+    console.error(`[ERROR] ${getTimestamp()}: ${message}`, error, context);
+};
+
+export const logDebug = (message, context = {}) => { // <--- ENSURE THIS IS PRESENT AND EXPORTED
+    // Only log debug messages in development environment
+    if (process.env.NODE_ENV === 'development') {
+        console.log(`[DEBUG] ${getTimestamp()}: ${message}`, context);
+    }
 };

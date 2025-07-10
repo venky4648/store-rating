@@ -11,6 +11,7 @@ A Node.js backend for user authentication, store management, and store ratings u
 - [Setup](#setup)
 - [API Endpoints](#api-endpoints)
   - [Auth](#auth)
+  - [Users](#users)
   - [Stores](#stores)
   - [Ratings](#ratings)
 - [Models](#models)
@@ -36,7 +37,10 @@ backend/
 ├── config/
 │   └── database.js
 ├── controllers/
-│   └── authController.js
+│   ├── authController.js
+│   ├── ratingController.js
+│   ├── storeController.js
+│   └── userController.js
 ├── middleware/
 │   └── authMiddleware.js
 ├── models/
@@ -47,8 +51,14 @@ backend/
 ├── routes/
 │   ├── authRoutes.js
 │   ├── storeRoutes.js
-│   └── ratingRoutes.js
-└── index.js
+│   ├── ratingRoutes.js
+│   └── userRoutes.js
+├── utils/
+│   └── logger.js
+├── .env
+├── index.js
+├── package.json
+└── Readme.md
 ```
 
 ---
@@ -63,7 +73,7 @@ backend/
 3. **Configure environment variables**  
    Create a `.env` file in `backend/`:
    ```
-   PORT=5000
+   PORT=8000
    JWT_SECRET=your_jwt_secret
    DATABASE_URL=your_postgres_connection_string
    ```
@@ -125,22 +135,188 @@ backend/
   }
   ```
 
+#### Get Authenticated User Profile
+
+- **GET** `/api/auth/me`
+- **Headers:** `Authorization: Bearer <token>`
+- **Response:**
+  ```json
+  {
+    "success": true,
+    "_id": "user-uuid",
+    "name": "John Doe",
+    "email": "john@example.com",
+    "address": "123 Main St",
+    "role": "Normal User",
+    "createdAt": "2024-07-10T12:00:00.000Z",
+    "updatedAt": "2024-07-10T12:00:00.000Z"
+  }
+  ```
+
+---
+
+### Users (System Administrator Only)
+
+- **GET** `/api/users`  
+  - **Headers:** `Authorization: Bearer <admin-token>`
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "users": [
+        {
+          "id": "user-uuid",
+          "name": "John Doe",
+          "email": "john@example.com",
+          "address": "123 Main St",
+          "role": "Normal User",
+          "createdAt": "...",
+          "updatedAt": "..."
+        }
+      ]
+    }
+    ```
+
+- **GET** `/api/users/:id`  
+  - **Headers:** `Authorization: Bearer <admin-token>`
+  - **Response:** Same as above, but for a single user.
+
+- **PUT** `/api/users/:id`  
+  - **Headers:** `Authorization: Bearer <admin-token>`
+  - **Body:** (any updatable fields)
+    ```json
+    {
+      "name": "Jane Doe",
+      "email": "jane@example.com",
+      "address": "456 Main St",
+      "role": "Store Owner"
+    }
+    ```
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "User updated successfully",
+      "user": { ...updatedUser }
+    }
+    ```
+
+- **DELETE** `/api/users/:id`  
+  - **Headers:** `Authorization: Bearer <admin-token>`
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "User deleted successfully"
+    }
+    ```
+
 ---
 
 ### Stores
 
 - **GET** `/api/stores`  
   Returns a list of stores.
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "stores": [
+        {
+          "id": "store-uuid",
+          "name": "Store Name",
+          "email": "store@email.com",
+          "address": "Address",
+          "averageRating": "4.50",
+          "userId": "owner-uuid",
+          "createdAt": "...",
+          "updatedAt": "...",
+          "owner": {
+            "id": "owner-uuid",
+            "name": "Owner Name",
+            "email": "owner@email.com"
+          }
+        }
+      ]
+    }
+    ```
+
+- **GET** `/api/stores/:id`  
+  Returns a single store by ID.
 
 - **POST** `/api/stores`  
-  (Requires authentication and appropriate role)
+  (Requires authentication as Store Owner or System Administrator)
+  - **Body:**
+    ```json
+    {
+      "name": "New Store",
+      "email": "store@email.com",
+      "address": "Address"
+    }
+    ```
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Store created successfully",
+      "store": { ...store }
+    }
+    ```
+
+- **PUT** `/api/stores/:id`  
+  (Requires authentication as Store Owner or System Administrator)
+  - **Body:** (any updatable fields)
+  - **Response:** Same as POST.
+
+- **DELETE** `/api/stores/:id`  
+  (Requires authentication as Store Owner or System Administrator)
+  - **Response:**
+    ```json
+    {
+      "success": true,
+      "message": "Store deleted successfully"
+    }
+    ```
 
 ---
 
 ### Ratings
 
-- **POST** `/api/ratings`
-  - **Headers:** `Authorization: Bearer <token>`
+- **GET** `/api/ratings`  
+  Returns all ratings (public).
+  - **Response:**
+    ```json
+    [
+      {
+        "id": "rating-uuid",
+        "userId": "user-uuid",
+        "storeId": "store-uuid",
+        "rating": 4,
+        "comment": "Great store!",
+        "createdAt": "...",
+        "updatedAt": "...",
+        "rater": {
+          "id": "user-uuid",
+          "name": "John Doe",
+          "email": "john@example.com"
+        },
+        "ratedStore": {
+          "id": "store-uuid",
+          "name": "Store Name",
+          "address": "Address"
+        }
+      }
+    ]
+    ```
+
+- **GET** `/api/ratings/:id`  
+  Returns a single rating by ID.
+
+- **GET** `/api/ratings/store/:storeId`  
+  Returns all ratings for a specific store.
+
+- **POST** `/api/ratings`  
+  (Requires authentication)
   - **Body:**
     ```json
     {
@@ -152,15 +328,28 @@ backend/
   - **Response:**
     ```json
     {
-      "success": true,
-      "message": "Rating submitted successfully",
-      "rating": {
-        "id": "rating-uuid",
-        "userId": "user-uuid",
-        "storeId": "store-uuid",
-        "rating": 4,
-        "comment": "Great store!"
-      }
+      "message": "Rating created successfully",
+      "rating": { ...rating }
+    }
+    ```
+
+- **PUT** `/api/ratings/:id`  
+  (Requires authentication, only rating owner)
+  - **Body:** (any updatable fields)
+  - **Response:**
+    ```json
+    {
+      "message": "Rating updated successfully",
+      "rating": { ...updatedRating }
+    }
+    ```
+
+- **DELETE** `/api/ratings/:id`  
+  (Requires authentication, only rating owner or System Administrator)
+  - **Response:**
+    ```json
+    {
+      "message": "Rating deleted successfully."
     }
     ```
 
@@ -181,8 +370,10 @@ backend/
 
 - `id` (UUID)
 - `name`
+- `email`
 - `address`
-- `ownerId` (User UUID)
+- `averageRating`
+- `userId` (User UUID, owner)
 
 ### Rating
 
@@ -199,9 +390,8 @@ backend/
 - All protected routes require a JWT token in the `Authorization` header.
 - A user can only rate a specific store once (enforced by a unique index on `user_id` + `store_id`).
 - Use consistent file casing for imports (e.g., always `User.js`).
+- Only System Administrators can access user management routes.
 
 ---
 
-## License
-
-MIT
+##

@@ -1,7 +1,7 @@
 // controllers/storeController.js
 import Store from '../models/Store.js';
 import User from '../models/User.js'; // Needed for include in get methods
-import { logSuccess, logError } from '../utils/logger.js';
+import { logSuccess, logError,logInfo } from '../utils/logger.js';
 import { Op } from 'sequelize'; // For advanced queries if needed
 
 // Helper function to check if user is admin or owner of the store
@@ -153,16 +153,39 @@ export const updateStore = async (req, res) => {
             }
         }
 
-        store.name = name || store.name;
-        store.email = email || store.email;
-        store.address = address || store.address;
+        // Track updated fields
+        const updatedFields = {};
+        if (name && name !== store.name) {
+            updatedFields.name = name;
+            store.name = name;
+        }
+        if (email && email !== store.email) {
+            updatedFields.email = email;
+            store.email = email;
+        }
+        if (address && address !== store.address) {
+            updatedFields.address = address;
+            store.address = address;
+        }
+
+        if (Object.keys(updatedFields).length === 0) {
+            logInfo('No changes detected for store update', { storeId: store.id });
+            return res.status(200).json({
+                success: true,
+                message: 'No changes detected',
+                store: store,
+            });
+        }
 
         await store.save();
 
-        logSuccess('Store updated successfully', { storeId: store.id, updatedFields: { name, email, address } });
+        logSuccess('Store updated successfully', { storeId: store.id, updatedFields });
+        console.log('Updated fields:', updatedFields); // Console log all updated fields
+
         res.status(200).json({
             success: true,
             message: 'Store updated successfully',
+            updatedFields: updatedFields,
             store: store,
         });
 
